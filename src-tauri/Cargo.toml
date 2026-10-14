@@ -1,0 +1,33 @@
+[package]
+name = "deadlock-counterpick"
+version = "1.0.0"
+description = "Deadlock Counterpick: контрпик, предметы, разбор матчей и тренировка"
+authors = ["Daniel March"]
+edition = "2021"
+
+[lib]
+# Имя библиотеки отличается от имени пакета, чтобы не было конфликта на Windows
+name = "deadlock_counterpick_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-notification = "2"
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+
+# Только для ПК: горячие клавиши, один экземпляр, запоминание окна
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-window-state = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

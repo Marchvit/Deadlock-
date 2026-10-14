@@ -1,0 +1,9 @@
+{
+  "identifier": "default",
+  "description": "Права главного окна: события (горячие клавиши) и уведомления таймеров",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "notification:default"
+  ]
+}
