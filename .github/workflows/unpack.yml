@@ -1,0 +1,36 @@
+# Один раз распаковывает deadlock-counterpick-rust.zip прямо в репозиторий,
+# чтобы исходники, README и скриншоты были видны на странице проекта.
+# Запуск: Actions → «Распаковать проект» → Run workflow.
+
+name: Распаковать проект
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Распаковать архив и сохранить в репозиторий
+        run: |
+          set -e
+          Z=$(ls -1 *.zip 2>/dev/null | head -1)
+          if [ -z "$Z" ]; then echo "::error::В корне репозитория нет zip-архива"; exit 1; fi
+          rm -rf _src
+          unzip -q -o "$Z" -d _src
+          ROOT=$(find _src -mindepth 1 -maxdepth 1 -type d | head -1)
+          # Папку .github не трогаем: файлы сборки меняются только вручную
+          rm -rf "$ROOT/.github"
+          cp -r "$ROOT"/. ./
+          rm -rf _src "$Z"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898458+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Распаковка проекта из архива" || echo "Изменений нет"
+          git push
+          
