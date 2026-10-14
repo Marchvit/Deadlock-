@@ -1,4 +1,4 @@
-//! Deadlock Counterpick: нативная оболочка на Tauri 2 для Windows и Android.
+//! Deadlock Counterpick: нативная оболочка на Tauri 2 для Windows, Linux и Android.
 //!
 //! Интерфейс целиком живёт в `dist/index.html` (тот же, что и веб-версия).
 //! Rust добавляет то, чего нет в браузере:
@@ -120,12 +120,22 @@ fn game_log_sample(state: tauri::State<'_, GameShared>) -> String {
 #[tauri::command]
 fn set_game_dir(state: tauri::State<'_, GameShared>, path: Option<String>) -> Result<bool, String> {
     let dir = path
-        .map(|p| p.trim().trim_matches('"').to_string())
+        .map(|p| p.trim().trim_matches('"').trim_matches('\'').to_string())
         .filter(|p| !p.is_empty())
-        .map(PathBuf::from);
+        .map(|p| match (p.strip_prefix("~/"), std::env::var_os("HOME")) {
+            (Some(rest), Some(home)) => PathBuf::from(home).join(rest),
+            _ => PathBuf::from(p),
+        });
     let ok = dir.as_ref().map(|d| game::is_game_dir(d)).unwrap_or(true);
     if !ok {
-        return Err("В этой папке нет game\\citadel. Укажи папку Deadlock, например D:\\SteamLibrary\\steamapps\\common\\Deadlock".into());
+        let example = if cfg!(windows) {
+            "D:\\SteamLibrary\\steamapps\\common\\Deadlock"
+        } else {
+            "~/.local/share/Steam/steamapps/common/Deadlock"
+        };
+        return Err(format!(
+            "В этой папке нет game/citadel. Укажи папку Deadlock, например {example}"
+        ));
     }
     *state.dir_override.lock().map_err(|e| e.to_string())? = dir;
     Ok(true)

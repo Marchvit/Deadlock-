@@ -269,6 +269,10 @@ fn steam_roots() -> Vec<PathBuf> {
             let h = PathBuf::from(home);
             roots.push(h.join(".steam/steam"));
             roots.push(h.join(".local/share/Steam"));
+            roots.push(h.join(".steam/root"));
+            // Steam из Flatpak и Snap
+            roots.push(h.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"));
+            roots.push(h.join("snap/steam/common/.local/share/Steam"));
         }
     }
     roots
@@ -288,6 +292,9 @@ pub fn find_game_dir() -> Option<PathBuf> {
     for letter in b'C'..=b'H' {
         libs.push(PathBuf::from(format!("{}:\\SteamLibrary", letter as char)));
     }
+    // Одна и та же библиотека часто видна по нескольким путям (симлинки ~/.steam/steam)
+    let mut seen = std::collections::HashSet::new();
+    libs.retain(|l| seen.insert(std::fs::canonicalize(l).unwrap_or_else(|_| l.clone())));
     libs.into_iter()
         .map(|l| l.join("steamapps").join("common").join("Deadlock"))
         .find(|d| is_game_dir(d))
@@ -318,6 +325,26 @@ fn registry_steam_path() -> Option<PathBuf> {
     }
 }
 
+/// Похож ли процесс на игру. На Linux Deadlock идёт через Proton,
+/// поэтому смотрим и имя процесса, и командную строку (там путь к deadlock.exe).
+/// Сам Deadlock Counterpick («deadlock-counterpick») сюда не попадает.
+pub fn is_deadlock_process(comm: &str, cmdline: &str) -> bool {
+    let comm = comm.trim().to_ascii_lowercase();
+    if comm == "deadlock.exe" || comm == "deadlock" {
+        return true;
+    }
+    // Аргументы в /proc/<pid>/cmdline разделены нулевыми байтами
+    cmdline
+        .split('\0')
+        .filter(|a| !a.is_empty())
+        .take(3)
+        .any(|a| {
+            let a = a.to_ascii_lowercase().replace('\\', "/");
+            let file = a.rsplit('/').next().unwrap_or("");
+            file == "deadlock.exe"
+        })
+}
+
 /// Запущена ли игра (процесс deadlock.exe).
 pub fn is_game_running() -> bool {
     #[cfg(windows)]
@@ -332,7 +359,25 @@ pub fn is_game_running() -> bool {
             })
             .unwrap_or(false)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        let Ok(entries) = std::fs::read_dir("/proc") else {
+            return false;
+        };
+        entries.flatten().any(|e| {
+            let name = e.file_name();
+            let Some(pid) = name.to_str() else {
+                return false;
+            };
+            if !pid.bytes().all(|b| b.is_ascii_digit()) {
+                return false;
+            }
+            let comm = std::fs::read_to_string(e.path().join("comm")).unwrap_or_default();
+            let cmd = std::fs::read(e.path().join("cmdline")).unwrap_or_default();
+            is_deadlock_process(&comm, &String::from_utf8_lossy(&cmd))
+        })
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         false
     }
@@ -341,6 +386,32 @@ pub fn is_game_running() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deadlock_process_detected_under_proton() {
+        assert!(is_deadlock_process("deadlock.exe\n", ""));
+        assert!(is_deadlock_process(
+            "wine64-preload",
+            "Z:\\home\\dan\\.local\\share\\Steam\\steamapps\\common\\Deadlock\\game\\bin\\win64\\deadlock.exe\0-condebug\0"
+        ));
+        assert!(is_deadlock_process(
+            "main",
+            "/home/dan/.steam/steam/steamapps/common/Deadlock/game/bin/win64/deadlock.exe\0-condebug"
+        ));
+        // Само приложение, Steam и прочее не считаются игрой
+        assert!(!is_deadlock_process(
+            "deadlock-counte",
+            "/usr/bin/deadlock-counterpick\0"
+        ));
+        assert!(!is_deadlock_process(
+            "steam",
+            "steam\0-applaunch\0deadlock.exe.log\0"
+        ));
+        assert!(!is_deadlock_process(
+            "bash",
+            "bash\0-c\0echo\0x\0deadlock.exe"
+        ));
+    }
 
     #[test]
     fn heroes_found_on_word_boundary() {

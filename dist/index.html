@@ -533,8 +533,9 @@ const S={heroes:[],byId:{},items:[],iById:{},assetsErr:'',itemsErr:'',
   acc:null,profile:null,liveId:store('dl_live'),live:null,liveErr:'',
   hist:[],histErr:'',histNote:'',histLoading:false,bench:{},view:'prof'};
 {const d=store('dl_draft');if(d){S.me=d.me??null;S.allies=d.allies||[];S.enemies=d.enemies||[];S.dmg=d.dmg||{};S.build=d.build||[];}}
-const DEFAULT_ACC=181174247; // Daniel: steamcommunity.com/profiles/76561198141439975
-S.acc=store('dl_acc');if(S.acc==null&&!store('dl_acc_off')){S.acc=DEFAULT_ACC;store('dl_acc',S.acc);}
+// Аккаунт по умолчанию не задан: каждый пользователь вводит свой Steam ID один раз, он запоминается
+const DEFAULT_ACC=null;
+S.acc=store('dl_acc');if(S.acc==null&&DEFAULT_ACC&&!store('dl_acc_off')){S.acc=DEFAULT_ACC;store('dl_acc',S.acc);}
 S.profile=store('dl_prof');
 const saveDraft=()=>store('dl_draft',{me:S.me,allies:S.allies,enemies:S.enemies,dmg:S.dmg,build:S.build});
 
@@ -1437,7 +1438,7 @@ const TPRE=[{id:'boss',n:'Мид-босс',s:420},{id:'big',n:'Большой л
 let tdur=Object.assign(Object.fromEntries(TPRE.map(t=>[t.id,t.s])),store('dl_timers')||{});
 const trun={},twarn={};let ttick=null;
 function renderTimers(){
-  $('timers').innerHTML=`<div class="timers">${TPRE.map((t,i)=>`<div class="timer" id="tm-${t.id}"><span class="hint" style="margin:0">${esc(t.n)}</span>${HOTKEYS()?`<span class="tk">F${6+i}</span>`:''}<b data-tr="${t.id}">${fmt(tdur[t.id])}</b><div class="bar"><i data-tb="${t.id}" style="width:100%;animation:none"></i></div><div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" type="button" data-tm="${t.id}" data-ta="go">Старт</button><button class="btn sm ghost" type="button" data-tm="${t.id}" data-ta="reset" aria-label="Сбросить таймер">↺</button></div><label class="hint" style="display:block;margin:8px 0 0">сек <input class="inp gi" type="text" inputmode="numeric" data-td="${t.id}" value="${tdur[t.id]}" aria-label="Длительность: ${esc(t.n)}"></label></div>`).join('')}</div>${HOTKEYS()?`<div class="row mt" style="justify-content:space-between"><label class="tog"><input type="checkbox" id="ontop" ${store('dl_ontop')?'checked':''}> Окно поверх игры</label><span class="hint" style="margin:0">F6–F10 запускают таймеры прямо из игры</span></div>`:''}`;
+  $('timers').innerHTML=`<div class="timers">${TPRE.map((t,i)=>`<div class="timer" id="tm-${t.id}"><span class="hint" style="margin:0">${esc(t.n)}</span>${HOTKEYS()?`<span class="tk">F${6+i}</span>`:''}<b data-tr="${t.id}">${fmt(tdur[t.id])}</b><div class="bar"><i data-tb="${t.id}" style="width:100%;animation:none"></i></div><div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" type="button" data-tm="${t.id}" data-ta="go">Старт</button><button class="btn sm ghost" type="button" data-tm="${t.id}" data-ta="reset" aria-label="Сбросить таймер">↺</button></div><label class="hint" style="display:block;margin:8px 0 0">сек <input class="inp gi" type="text" inputmode="numeric" data-td="${t.id}" value="${tdur[t.id]}" aria-label="Длительность: ${esc(t.n)}"></label></div>`).join('')}</div>${HOTKEYS()?`<div class="row mt" style="justify-content:space-between"><label class="tog"><input type="checkbox" id="ontop" ${store('dl_ontop')?'checked':''}> Окно поверх игры</label><span class="hint" style="margin:0">F6–F10 запускают таймеры прямо из игры${LINUX?' (на Wayland могут не срабатывать)':''}</span></div>`:''}`;
   tickTimers();
 }
 function timerAct(id,a){
@@ -1589,10 +1590,11 @@ async function shareCard(kind){
   },'image/png');
 }
 
-/* ================= Нативное приложение (Tauri: Windows и Android) ================= */
+/* ================= Нативное приложение (Tauri: Windows, Linux и Android) ================= */
 const TAURI=window.__TAURI__||null,NATIVE=!!(TAURI&&TAURI.core),ANDROID=/Android/i.test(navigator.userAgent);
 // Простая Android-оболочка на WebView (APK без Tauri): нет загрузок файлов и озвучки
 const WV=!NATIVE&&ANDROID&&/;\s*wv\)/.test(navigator.userAgent);
+const LINUX=NATIVE&&!ANDROID&&/Linux/i.test(navigator.userAgent);
 const HOTKEYS=()=>NATIVE&&!ANDROID;
 const tnid={};
 const blobB64=b=>new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]||'');fr.onerror=rej;fr.readAsDataURL(b);});
@@ -1664,7 +1666,7 @@ function renderGame(){
   const kn=gameHeroes(g);
   el.innerHTML=`<div class="list">${rows.map(([k,v])=>`<div class="it" style="grid-template-columns:140px minmax(0,1fr)"><span class="hint" style="margin:0">${k}</span><span style="overflow-wrap:anywhere">${v}</span></div>`).join('')}</div>`
    +(!g.log_active?`<div class="tip in">${ICON.spark}<div><b>Включи лог игры (один раз)</b><div class="hint">Steam → Библиотека → правый клик по Deadlock → Свойства → Общие → Параметры запуска: впиши <b style="color:var(--text)">-condebug</b> и перезапусти игру.</div></div></div>`:'')
-   +(!g.game_dir?`<div class="row mt"><input class="inp" id="gdir" placeholder="D:\\SteamLibrary\\steamapps\\common\\Deadlock" value="${esc(store('dl_gdir')||'')}" style="flex:1;min-width:220px" aria-label="Папка игры"><button class="btn sm" type="button" data-act="gdir">Сохранить</button></div>`:'')
+   +(!g.game_dir?`<div class="row mt"><input class="inp" id="gdir" placeholder="${LINUX?'~/.local/share/Steam/steamapps/common/Deadlock':'D:\\SteamLibrary\\steamapps\\common\\Deadlock'}" value="${esc(store('dl_gdir')||'')}" style="flex:1;min-width:220px" aria-label="Папка игры"><button class="btn sm" type="button" data-act="gdir">Сохранить</button></div>`:'')
    +(kn.length?`<h3>Замечены в текущем матче</h3><div class="tags">${kn.map(h=>`<button class="chipb" type="button" data-gh="${h.id}">${av(h,'xs')}${esc(h.name)}</button>`).join('')}</div><p class="hint">Нажми на героя, чтобы добавить его в драфт в текущем режиме: сейчас «${({me:'Я',ally:'Союзник',enemy:'Враг'})[S.mode]}». Режим меняется во вкладке «Драфт».</p>`:'')
    +`<div class="row mt"><button class="btn sm ghost" type="button" data-act="glog">Скопировать фрагмент лога</button></div><p class="hint">Детектор пока экспериментальный: Valve не описывает формат лога. После первого матча с -condebug нажми «Скопировать фрагмент лога» и пришли текст мне: по нему я настрою точное определение составов и команд.</p>`;
 }

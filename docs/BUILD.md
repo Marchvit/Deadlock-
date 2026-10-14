@@ -1,17 +1,17 @@
-# Deadlock Counterpick — приложение для Windows и Android
+# Deadlock Counterpick — приложение для Windows, Linux и Android
 
 Rust + [Tauri 2](https://tauri.app). Интерфейс — тот же, что в веб-версии (`dist/index.html`),
 а Rust добавляет нативные функции:
 
-| Функция | Windows | Android |
-|---|---|---|
-| Все вкладки: профиль, лайв, драфт, предметы, тренировка | ✅ | ✅ |
-| Детектор игры: запуск Deadlock, герои и номер матча из лога, разбор сразу после матча | ✅ (экспериментально) | — |
-| Горячие клавиши F6–F10 для таймеров прямо из игры | ✅ | — |
-| Окно поверх игры (переключатель во вкладке «Лайв») | ✅ | — |
-| Уведомления таймеров | ✅ | ✅ (приходят даже из фона) |
-| Сохранение карточек в «Изображения/Deadlock Counterpick» | ✅ | показ на экране |
-| Голосовые подсказки | ✅ | — (звуковой сигнал и уведомления работают) |
+| Функция | Windows | Linux | Android |
+|---|---|---|---|
+| Все вкладки: профиль, лайв, драфт, предметы, тренировка | ✅ | ✅ | ✅ |
+| Детектор игры: запуск Deadlock, герои и номер матча из лога, разбор сразу после матча | ✅ (экспериментально) | ✅ (Steam и Proton, экспериментально) | — |
+| Горячие клавиши F6–F10 для таймеров прямо из игры | ✅ | ✅ на X11 (на Wayland могут не срабатывать) | — |
+| Окно поверх игры (переключатель во вкладке «Лайв») | ✅ | ✅ | — |
+| Уведомления таймеров | ✅ | ✅ | ✅ (приходят даже из фона) |
+| Сохранение карточек в «Изображения/Deadlock Counterpick» | ✅ | ✅ (`~/Pictures`) | показ на экране |
+| Голосовые подсказки | ✅ | — | — (звуковой сигнал и уведомления работают) |
 
 Таймеры по клавишам: **F6** мид-босс, **F7** большой лагерь, **F8** малый лагерь, **F9** урна, **F10** свой.
 Если какая-то клавиша занята другой программой, приложение просто её пропустит.
@@ -29,6 +29,11 @@ Rust + [Tauri 2](https://tauri.app). Интерфейс — тот же, что 
 **Включить один раз:** Steam → Библиотека → правый клик по Deadlock → Свойства → Общие →
 Параметры запуска: впиши `-condebug` и перезапусти игру. После этого игра пишет лог в
 `Deadlock\game\citadel\console.log`.
+
+**Linux (Steam + Proton):** то же самое. Если в параметрах запуска уже есть `%command%`,
+допиши флаг после него: `%command% -condebug`. Папку игры приложение ищет в `~/.steam/steam`,
+`~/.local/share/Steam`, Steam из Flatpak и Snap, а также во всех библиотеках из `libraryfolders.vdf`.
+Не нашло — впиши путь вручную во вкладке «Лайв», например `~/.local/share/Steam/steamapps/common/Deadlock`.
 
 Детектор пока экспериментальный: Valve не публикует формат лога. После первого матча нажми во вкладке
 «Лайв» кнопку **«Скопировать фрагмент лога»** и пришли текст: по нему распознавание составов и команд
@@ -69,12 +74,23 @@ Rust + [Tauri 2](https://tauri.app). Интерфейс — тот же, что 
 2. Там появится запуск **«Сборка приложений»**. Жёлтый кружок — идёт сборка, зелёная галочка — готово.
 3. Открой запуск и прокрути вниз до раздела **Artifacts**:
    - **windows** — установщик `…_x64-setup.exe`, `.msi` и портативный `DeadlockCounterpick-portable.exe`;
+   - **linux** — `DeadlockCounterpick-x86_64.AppImage`, `.deb` (Ubuntu, Debian, Mint) и `.rpm` (Fedora, openSUSE);
    - **android** — `DeadlockCounterpick.apk`;
    - **android-signing-key** — ключ подписи (только при первой сборке, см. шаг 5).
 
 ### Шаг 4. Установи
 **Windows:** запусти `…_x64-setup.exe`. Windows может показать «Система Windows защитила ваш компьютер»
 (у приложения нет платного сертификата) → **Подробнее** → **Выполнить в любом случае**.
+
+**Linux:** самый простой вариант — AppImage, работает почти на любом дистрибутиве:
+```bash
+chmod +x DeadlockCounterpick-x86_64.AppImage
+./DeadlockCounterpick-x86_64.AppImage
+```
+Или пакетом: `sudo apt install ./DeadlockCounterpick_amd64.deb` (Ubuntu, Debian, Mint, Pop!_OS),
+`sudo dnf install ./DeadlockCounterpick.x86_64.rpm` (Fedora). После этого приложение появится в меню.
+Если окно открывается белым или пустым: запусти с `WEBKIT_DISABLE_COMPOSITING_MODE=1`.
+Если AppImage не стартует на старом дистрибутиве: `sudo apt install libfuse2`.
 
 **Android:** перекинь `DeadlockCounterpick.apk` на телефон (Telegram «Избранное», Google Диск, кабель),
 открой файл и разреши установку из этого источника, когда телефон спросит.
@@ -103,6 +119,10 @@ Rust + [Tauri 2](https://tauri.app). Интерфейс — тот же, что 
 1. Установи [Rust](https://rustup.rs) (вариант по умолчанию, вместе с Visual Studio Build Tools) и [Node.js LTS](https://nodejs.org).
 2. В папке проекта: `npm install`, затем `npx tauri dev` (запуск) или `npx tauri build` (установщик в `src-tauri/target/release/bundle`).
 
+**Linux:** установи [Rust](https://rustup.rs), Node.js LTS и системные библиотеки
+(Ubuntu/Debian: `sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev build-essential`;
+другие дистрибутивы: [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/#linux)). Дальше те же `npm install` и `npx tauri build`.
+
 **Android:** нужен ещё Android Studio с SDK и NDK. Пошагово: [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/#android).
 Затем `npx tauri android init` и `npx tauri android build --apk`.
 
@@ -114,5 +134,5 @@ src-tauri/src/game.rs          Rust: детектор игры (поиск па�
 src-tauri/tauri.conf.json      настройки приложения и установщика
 src-tauri/capabilities/        права интерфейса
 src-tauri/icons/               иконки
-.github/workflows/build.yml    автосборка Windows и Android
+.github/workflows/build.yml    автосборка Windows, Linux и Android
 ```

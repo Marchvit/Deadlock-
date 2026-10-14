@@ -37,7 +37,18 @@
     ],
     "windows": {
       "nsis": {
-        "languages": ["Russian"]
+        "languages": [
+          "Russian"
+        ]
+      }
+    },
+    "longDescription": "Контрпик, умная закупка, разбор матчей и тренировка для Deadlock",
+    "linux": {
+      "deb": {
+        "section": "games"
+      },
+      "appimage": {
+        "bundleMediaFramework": true
       }
     }
   }

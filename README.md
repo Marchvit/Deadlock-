@@ -6,6 +6,7 @@
 
 [![Сборка](../../actions/workflows/build.yml/badge.svg)](../../actions/workflows/build.yml)
 ![Windows](https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
 ![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)
 ![Rust](https://img.shields.io/badge/Rust-Tauri_2-D8AA5E?logo=rust&logoColor=white)
 ![Лицензия](https://img.shields.io/badge/лицензия-MIT-8A939C)
@@ -46,7 +47,7 @@
 - Досье на соперников: ранг, мейн, винрейт на текущем герое
 - Таймеры объектов со звуком, на ПК запускаются клавишами **F6–F10** прямо из игры
 - Голосовые подсказки и режим «окно поверх игры»
-- **Детектор игры на ПК** (экспериментально): видит запуск Deadlock, героев и номер матча из лога игры
+- **Детектор игры на ПК** (Windows и Linux, экспериментально): видит запуск Deadlock, героев и номер матча из лога игры
 
 ### Тренировка
 - Цели, сессия со стоп-лоссом, калькулятор темпа, разминка
@@ -71,20 +72,24 @@
 | Платформа | Что скачать | Как поставить |
 |---|---|---|
 | **Windows 10/11** | `…_x64-setup.exe` | Запусти. Если Windows предупредит: «Подробнее» → «Выполнить в любом случае» |
+| **Linux** (x86_64) | `DeadlockCounterpick-x86_64.AppImage`, `.deb` или `.rpm` | AppImage: `chmod +x` и запусти. Ubuntu/Debian: `sudo apt install ./DeadlockCounterpick_amd64.deb`, Fedora: `sudo dnf install ./DeadlockCounterpick.x86_64.rpm` |
 | **Android 7+** | `DeadlockCounterpick.apk` | Открой файл на телефоне и разреши установку из этого источника |
 
 Файлы лежат в [Releases](../../releases/latest) или во вкладке [Actions](../../actions) → последняя сборка → Artifacts.
 
-### Детектор игры (ПК)
+### Детектор игры (Windows и Linux)
 Steam → правый клик по Deadlock → Свойства → Параметры запуска: впиши `-condebug`.
 Игра начнёт писать текстовый лог, который читает приложение. Память игры не трогается,
 поэтому для аккаунта это безопасно.
+
+На Linux детектор работает с Deadlock через Proton: Steam, Flatpak и Snap находятся автоматически.
+Если в параметрах запуска есть `%command%`, пиши так: `%command% -condebug`.
 
 ## Как это устроено
 
 - **Интерфейс**: один HTML-файл (`dist/index.html`), он же работает как веб-версия
 - **Приложение**: Rust + [Tauri 2](https://tauri.app). Горячие клавиши, уведомления, окно поверх игры и детектор игры (`src-tauri/src/game.rs`, с тестами)
-- **Сборка**: GitHub Actions собирает Windows и Android при каждом изменении ([подробнее](docs/BUILD.md))
+- **Сборка**: GitHub Actions собирает Windows, Linux и Android при каждом изменении ([подробнее](docs/BUILD.md))
 - **Данные**: публичный [deadlock-api.com](https://deadlock-api.com): статистика матчей, ранги, история
 
 ## Благодарности
