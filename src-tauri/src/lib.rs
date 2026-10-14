@@ -141,7 +141,8 @@ fn set_game_dir(state: tauri::State<'_, GameShared>, path: Option<String>) -> Re
     Ok(true)
 }
 
-/// Фоновый цикл детектора: раз в секунду читает лог, раз в 3 секунды проверяет процесс.
+/// Фоновый цикл детектора. Пока игра запущена или пишет лог: лог раз в секунду, процесс раз в 3 секунды.
+/// Когда игры нет: просыпаемся раз в 2 секунды, процесс проверяем раз в 5 секунд.
 #[cfg(desktop)]
 fn game_loop(app: tauri::AppHandle) {
     use std::time::{Duration, Instant};
@@ -177,7 +178,9 @@ fn game_loop(app: tauri::AppHandle) {
         }
 
         // Процесс игры
-        if last_proc.map_or(true, |t| t.elapsed() > Duration::from_secs(3)) {
+        let active = running || last_line.map_or(false, |t| t.elapsed() < Duration::from_secs(120));
+        let proc_every = Duration::from_secs(if running { 3 } else { 5 });
+        if last_proc.map_or(true, |t| t.elapsed() >= proc_every) {
             let r = game::is_game_running();
             if r != running {
                 running = r;
@@ -227,7 +230,7 @@ fn game_loop(app: tauri::AppHandle) {
             let _ = app.emit("game-status", &st);
             prev = st;
         }
-        std::thread::sleep(Duration::from_secs(1));
+        std::thread::sleep(Duration::from_millis(if active { 1000 } else { 2000 }));
     }
 }
 

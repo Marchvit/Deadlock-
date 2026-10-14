@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://assets.deadlock-api.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Cinzel:wght@600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Cinzel:wght@600;700&display=swap"></noscript>
 <style>
 :root{
  --bg:#07090c;--s1:#0d1116;--s2:#131820;--s3:#1a2029;--line:#232a34;--line2:#313a46;
@@ -190,7 +190,8 @@ h3:first-child{margin-top:0}
 .live{display:flex;gap:14px;align-items:center;padding:14px;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
 .live.on{border-color:color-mix(in srgb,var(--good) 45%,transparent);background:color-mix(in srgb,var(--good) 6%,var(--bg))}
 .pulse{width:12px;height:12px;border-radius:50%;background:var(--faint);flex:none}
-.live.on .pulse{background:var(--good);animation:ping 1.6s infinite}
+.live.on .pulse{background:var(--good);position:relative}
+.pulse::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--good);animation:ping 1.6s infinite;will-change:transform,opacity;pointer-events:none}
 .nwbar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:8px;background:var(--line)}
 .nwbar i{display:block;height:100%;transition:width .6s var(--ease)}
 .mini{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center}
@@ -260,7 +261,7 @@ h3:first-child{margin-top:0}
 .timers{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .timer{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;transition:border-color .2s,box-shadow .2s}
 .timer b{display:block;font:700 32px var(--body);font-variant-numeric:tabular-nums;margin:2px 0;line-height:1.2}
-.timer .bar i{transition:width .25s linear}
+.timer .bar i{width:100%;animation:none;transform-origin:left;will-change:transform}
 .timer.run{border-color:var(--acc)}
 .timer.soon{border-color:var(--bad);animation:blink 1s infinite}
 .timer.soon .bar i{background:var(--bad)}
@@ -278,6 +279,19 @@ h3:first-child{margin-top:0}
 .tk{font:700 10px var(--body);color:var(--faint);border:1px solid var(--line2);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle}
 .native .top{padding-top:calc(14px + env(safe-area-inset-top))}
 .cardimg{display:block;width:100%;max-width:420px;margin:12px auto;border-radius:12px;border:1px solid var(--line2)}
+/* Анимации появления играют, когда открываешь вкладку. Когда данные на открытой вкладке
+   обновляются (выбрал героя, пришла статистика), списки меняются без повторной анимации:
+   иначе каждый клик заново анимирует десятки строк и тратит кадры. */
+.settled .view .it,.settled .view .kpi,.settled .view .tip,.settled .view .step,.settled .view .ach,.settled .view .slot.f,
+.settled .view .dv i,.settled .view .bar i,.settled .view .timeline i,.settled .view .cmp .bars i,.settled .view .spark .l,.settled .view .chart .l{animation:none}
+/* Игровой режим: пока идёт Deadlock или окно скрыто, никаких фоновых анимаций и размытия,
+   чтобы приложение не отнимало у игры кадры. Анимации не ставим на паузу, а мгновенно доводим
+   до конца, иначе элементы с появлением застрянут невидимыми. */
+.calm *,.calm *::before,.calm *::after{animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:0s!important;transition-delay:0s!important}
+.calm .timer.soon{animation-duration:1s!important;animation-iteration-count:infinite!important}
+.calm .top,.calm .sheet,.calm .rail,.mob .top,.mob .sheet,.mob .rail{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.calm .top,.mob .top{background:var(--bg)}
+.calm .rail,.mob .rail{background:var(--s1)}
 @keyframes fade{from{opacity:0}}
 @keyframes blink{50%{background:color-mix(in srgb,var(--bad) 12%,var(--bg))}}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}}
@@ -285,7 +299,7 @@ h3:first-child{margin-top:0}
 @keyframes grow{from{transform:scaleX(0)}}
 @keyframes sh{to{background-position:-200% 0}}
 @keyframes draw{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
-@keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 60%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
+@keyframes ping{0%{transform:scale(1);opacity:.6}100%{transform:scale(3);opacity:0}}
 @keyframes fall{to{transform:translateY(110vh)}}
 @keyframes shk{20%{transform:translate(-6px,3px)}40%{transform:translate(6px,-3px)}60%{transform:translate(-4px,-2px)}80%{transform:translate(4px,2px)}}
 .shake{animation:shk .6s}
@@ -473,21 +487,44 @@ const arr=x=>Array.isArray(x)?x:(x&&(x.data||x.rows||x.items||x.heroes||x.matche
 const smooth=c=>(c.w+K/2)/(c.m+K);
 const lf=(s,b)=>(s.w+30*b)/(s.m+30)-b;
 const debounce=(f,ms)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>f(...a),ms);};};
-function store(k,v){
+/* Хранилище. Ответы API («c:…») держим ещё и в памяти: не разбираем JSON заново при каждом чтении.
+   При переполнении localStorage (лимит около 5 МБ) удаляем самые старые ответы API и пробуем снова,
+   чтобы настройки и история никогда не терялись из-за кэша. */
+const MEM=new Map();
+const cacheT=k=>{try{const r=localStorage.getItem(k),m=r&&/^\{"t":(\d+)/.exec(r);return m?+m[1]:0;}catch(e){return 0;}};
+function evictCache(need){
   try{
-    if(v===undefined){const r=localStorage.getItem(k);return r==null?null:JSON.parse(r);}
-    localStorage.setItem(k,JSON.stringify(v));
+    const ks=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('c:'))ks.push([cacheT(k),k]);}
+    ks.sort((a,b)=>a[0]-b[0]);let freed=0,n=0;
+    for(const[,k]of ks){const r=localStorage.getItem(k);freed+=(r?r.length:0)+k.length;localStorage.removeItem(k);MEM.delete(k);n++;if(freed>need*2&&n>=2)break;}
+    return n>0;
+  }catch(e){return false;}
+}
+function store(k,v){
+  const c=k.startsWith('c:');
+  try{
+    if(v===undefined){
+      if(c&&MEM.has(k))return MEM.get(k);
+      const r=localStorage.getItem(k),x=r==null?null:JSON.parse(r);
+      if(c)MEM.set(k,x);
+      return x;
+    }
+    const str=JSON.stringify(v);
+    if(c)MEM.set(k,v);
+    try{localStorage.setItem(k,str);}
+    catch(e){if(evictCache(str.length+k.length))try{localStorage.setItem(k,str);}catch(e2){if(c)return;evictCache(1e7);localStorage.setItem(k,str);}}
   }catch(e){return null}
 }
-function unstore(k){try{localStorage.removeItem(k);}catch(e){}}
+function unstore(k){MEM.delete(k);try{localStorage.removeItem(k);}catch(e){}}
 function prune(){
   try{
     const now=Date.now(),keys=[];
     for(let i=0;i<localStorage.length;i++)keys.push(localStorage.key(i));
     for(const k of keys){
       if(!k)continue;
-      if(k.startsWith('c_')||k.startsWith('dl_stats_')||k==='dl_heroes'||k==='dl_items'){unstore(k);continue;}
-      if(k.startsWith('c:')){const v=store(k);if(!v||now-v.t>864e5)unstore(k);}
+      if(k.startsWith('c_')||k.startsWith('dl_stats_')||k==='dl_heroes'||k==='dl_items'||k==='dl_assets3'){unstore(k);continue;}
+      // Время записи читаем из начала строки, не разбирая весь JSON
+      if(k.startsWith('c:')&&now-cacheT(k)>864e5)unstore(k);
     }
   }catch(e){}
 }
@@ -517,7 +554,7 @@ function dv(x,max=.08){
 const slotColor=s=>s==='weapon'?'var(--gun)':s==='vitality'?'var(--vit)':s==='spirit'?'var(--spirit)':'var(--acc)';
 function toast(t){const e=$('toast');e.textContent=t;e.className='on';clearTimeout(toast.t);toast.t=setTimeout(()=>e.className='',4200);}
 function countUp(root){
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  if(document.documentElement.classList.contains('calm')||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   root.querySelectorAll('[data-cv]').forEach(el=>{
     const to=+el.dataset.cv,d=+el.dataset.cd,sf=el.dataset.cs||'',t0=performance.now();
     const f=t=>{const k=Math.min(1,(t-t0)/750);const x=to*(1-Math.pow(1-k,3));el.textContent=(d?x.toFixed(d):Math.round(x).toLocaleString('ru-RU'))+sf;if(k<1)requestAnimationFrame(f);};
@@ -542,7 +579,16 @@ const saveDraft=()=>store('dl_draft',{me:S.me,allies:S.allies,enemies:S.enemies,
 /* ================= API ================= */
 const inflight=new Map();
 function apiState(ok,msg){$('apiDot').className='dot '+(ok?'ok':'err');$('apiTxt').textContent=ok?'API на связи':'API: '+msg;}
-async function getJSON(url,{ttl=18e5,fresh=false}={}){
+/* Аналитика deadlock-api пересчитывается на сервере раз в 6 часов: держим её 3 часа.
+   Из ответов оставляем только поля, которые использует приложение: кэш в 4–8 раз меньше. */
+const KEEP=new Set(['hero_id','enemy_hero_id','hero_id1','hero_id2','ally_hero_id','item_id','wins','losses','matches','matches_played','avg_buy_time_s','total_kills','total_deaths','total_assists','total_net_worth','total_last_hits']);
+function slim(url,v){
+  if(!url.includes('/analytics/'))return v;
+  const a=Array.isArray(v)?v:null;if(!a)return v;
+  return a.map(r=>{if(!r||typeof r!=='object')return r;const o={};for(const k in r)if(KEEP.has(k))o[k]=r[k];return o;});
+}
+async function getJSON(url,{ttl,fresh=false}={}){
+  if(ttl===undefined)ttl=url.includes('/analytics/')?108e5:18e5;
   const k='c:'+url,c=ttl?store(k):null;
   if(!fresh&&c&&Date.now()-c.t<ttl)return c.v;
   if(inflight.has(url))return inflight.get(url);
@@ -550,7 +596,7 @@ async function getJSON(url,{ttl=18e5,fresh=false}={}){
     try{
       const r=await fetch(url);
       if(!r.ok){const e=new Error('HTTP '+r.status);e.status=r.status;throw e;}
-      const v=await r.json();apiState(true);
+      const v=slim(url,await r.json());apiState(true);
       if(ttl)store(k,{t:Date.now(),v});
       return v;
     }catch(e){
@@ -574,17 +620,17 @@ const heroStats=()=>getJSON(`${API}/analytics/hero-stats?`+qs(base(30)));
 /* ================= Ассеты ================= */
 function trimHeroes(l){
   return arr(l).filter(h=>h&&h.name&&h.id!=null&&!h.disabled&&!h.in_development&&h.player_selectable!==false)
-    .map(h=>{const im=h.images||{};return{id:+h.id,name:h.name,img:im.icon_hero_card||im.icon_image_small||im.minimap_image||'',type:String(h.hero_type||h.type||'').toLowerCase(),cls:String(h.class_name||'').toLowerCase()};})
+    .map(h=>{const im=h.images||{};return{id:+h.id,name:h.name,img:im.icon_hero_card_webp||im.icon_hero_card||im.icon_image_small_webp||im.icon_image_small||im.minimap_image||'',type:String(h.hero_type||h.type||'').toLowerCase(),cls:String(h.class_name||'').toLowerCase()};})
     .sort((a,b)=>a.name.localeCompare(b.name));
 }
 function trimItems(l){
   let a=arr(l).filter(i=>i&&i.name&&i.id!=null&&+i.cost>0&&!i.disabled);
   const up=a.filter(i=>i.type==null||i.type==='upgrade');if(up.length)a=up;
   const sh=a.filter(i=>i.shopable!==false);if(sh.length>20)a=sh;
-  return a.map(i=>({id:+i.id,name:i.name,cost:+i.cost,slot:String(i.item_slot_type||'').toLowerCase(),img:i.shop_image_small||i.shop_image||i.image||''}));
+  return a.map(i=>({id:+i.id,name:i.name,cost:+i.cost,slot:String(i.item_slot_type||'').toLowerCase(),img:i.shop_image_small_webp||i.shop_image_small||i.shop_image_webp||i.shop_image||i.image||''}));
 }
 async function loadAssets(){
-  const c=store('dl_assets3');
+  const c=store('dl_assets4');
   const use=a=>{S.heroes=a.h;S.byId={};a.h.forEach(h=>S.byId[h.id]=h);S.items=a.i||[];S.iById={};S.items.forEach(i=>S.iById[i.id]=i);};
   if(c&&c.h&&c.h.length&&c.i&&c.i.length&&Date.now()-c.t<216e5)use(c);
   else{
@@ -592,7 +638,7 @@ async function loadAssets(){
     try{h=trimHeroes(await getFirst([`${ASSETS}/heroes`,`${API}/assets/heroes`],{ttl:0}));}catch(e){S.assetsErr='Не удалось загрузить героев ('+e.message+').';}
     try{i=trimItems(await getFirst([`${ASSETS}/items`,`${API}/assets/items`],{ttl:0}));}catch(e){S.itemsErr='Не удалось загрузить предметы ('+e.message+').';}
     if(!i.length&&!S.itemsErr)S.itemsErr='Список предметов пустой или в неожиданном формате.';
-    if(h.length){S.assetsErr='';const a={t:Date.now(),h,i:i.length?i:(c&&c.i)||[]};store('dl_assets3',a);use(a);}
+    if(h.length){S.assetsErr='';const a={t:Date.now(),h,i:i.length?i:(c&&c.i)||[]};store('dl_assets4',a);use(a);}
     else if(c&&c.h&&c.h.length){use(c);S.assetsErr+=' Показываю сохранённую копию.';}
     if(S.items.length)S.itemsErr='';
   }
@@ -668,6 +714,7 @@ const TITLES={prof:['Профиль','Аккаунт, ранг, разбор и�
 function setView(v){
   if(!TITLES[v])v='prof';
   S.view=v;store('dl_tab',v);
+  const R=document.documentElement;R.classList.remove('settled');clearTimeout(setView.t);setView.t=setTimeout(()=>R.classList.add('settled'),900);
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
   document.querySelectorAll('.nav button').forEach(b=>b.dataset.v===v?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
   $('ttl').textContent=TITLES[v][0];$('sub').textContent=TITLES[v][1];
@@ -906,7 +953,7 @@ async function pollLive(){
   catch(e){S.liveErr='Лайв-данные недоступны: '+e.message;if(S.view==='live')renderLive();return;}
   const m=list.find(x=>(x.players||[]).some(p=>+p.account_id===S.acc));
   if(!m){
-    if(S.liveId){S.liveId=null;unstore('dl_live');toast('Матч закончился. Обновлю разбор через 2 минуты');say('Матч закончился','match');setTimeout(()=>loadHist(true),12e4);}
+    if(S.liveId){S.liveId=null;unstore('dl_live');toast('Матч закончился. Загружу его, как только он появится');say('Матч закончился','match');postMatchSync(null);}
     S.live=null;S.dossier=null;S.nwState=null;$('liveBadge').classList.remove('on');if(S.view==='live')renderLiveView();return;
   }
   const me=m.players.find(p=>+p.account_id===S.acc),mt=String(me.team),hid=+me.hero_id;
@@ -931,24 +978,75 @@ async function pollLive(){
   S.live={dur,hero:hid,a,b,tip,al,en};
   $('liveBadge').classList.add('on');if(S.view==='live')renderLive();
 }
+/* ===== История из Steam через deadlock-api =====
+ Обычный запрос (с походом в Steam) deadlock-api разрешает 5 раз в час на один IP-адрес:
+ ПК, телефон и браузер в одном Wi-Fi делят этот лимит. Сохранённая история (only_stored_history)
+ без лимита, но обновляется с задержкой, иногда на часы. Поэтому держим свой бюджет 4 запроса в час,
+ один оставляем на кнопку «Обновить из Steam», а при 429 ждём столько, сколько попросил сервер. */
+const STEAM_MAX=4,HOUR=36e5;
+const steamCalls=()=>{const n=Date.now();return(store('dl_steam_calls')||[]).filter(t=>n-t<HOUR);};
+const steamBlock=()=>+store('dl_steam_block')||0;
+const steamLast=()=>+store('dl_steam_last')||0;
+function steamWait(manual){
+  const b=steamBlock()-Date.now();if(b>0)return b;
+  const c=steamCalls(),lim=manual?STEAM_MAX+1:STEAM_MAX;
+  return c.length<lim?0:Math.max(1e3,[...c].sort((a,b)=>a-b)[c.length-lim]+HOUR-Date.now());
+}
+function mergeHist(a,b){
+  const m=new Map();
+  for(const x of [...(b||[]),...(a||[])])if(x&&x.match_id!=null){const o=m.get(+x.match_id);if(!o||o._meta)m.set(+x.match_id,x);}
+  return[...m.values()].sort((x,y)=>(+y.start_time||0)-(+x.start_time||0)||(+y.match_id)-(+x.match_id));
+}
+async function steamHistory(acc,manual){
+  if(steamWait(manual)>0)return{limited:true};
+  store('dl_steam_calls',[...steamCalls(),Date.now()]);
+  let r;
+  try{r=await fetch(`${API}/players/${acc}/match-history`);}catch(e){return{err:e.message};}
+  if(r.status===429){
+    const ra=+r.headers.get('retry-after');
+    store('dl_steam_block',Date.now()+(ra>0?Math.min(ra,3600)*1e3:20*6e4));
+    return{limited:true,hit:true};
+  }
+  if(r.status===403)return{closed:true};
+  if(!r.ok)return{err:'HTTP '+r.status};
+  const h=arr(await r.json());store('dl_steam_last',Date.now());return{h};
+}
+const agoMs=ms=>{const m=Math.round(ms/6e4);return m<1?'только что':m<60?`${m} мин назад`:`${Math.floor(m/60)} ч ${m%60} мин назад`;};
+function syncLine(){
+  if(!S.acc)return'';
+  const last=steamLast(),w=steamWait(false),g=S.game&&S.game.last_match_id;
+  let t=last?`Из Steam: ${agoMs(Date.now()-last)}`:'Из Steam ещё не обновлялось';
+  if(w>0)t+=` · авто через ${Math.ceil(w/6e4)} мин`;
+  if(g&&!S.hist.some(m=>String(m.match_id)===String(g)))t+=` · матч ${g} ещё не дошёл до deadlock-api, загружу сам`;
+  return`<p class="hint" id="syncLine">${esc(t)}</p>`;
+}
 async function loadHist(force){
   if(!S.acc)return;
+  const acc=S.acc;
   S.histLoading=true;if(S.view==='prof')renderCoach();
-  const url=f=>`${API}/players/${S.acc}/match-history`+(f?'':'?only_stored_history=true');
   let note='';
   try{
-    let r=await fetch(url(force));
-    if(r.status===429){note='Лимит обновлений из Steam (около 5 в час) исчерпан: показываю сохранённую историю.';r=await fetch(url(false));}
+    const c=store('dl_hist');
+    const r=await fetch(`${API}/players/${acc}/match-history?only_stored_history=true`);
     if(r.status===403){S.histErr='Профиль закрыт: игрок скрыл статистику, поэтому историю получить нельзя.';S.hist=[];}
     else{
       if(!r.ok)throw new Error('HTTP '+r.status);
-      let h=arr(await r.json());
-      if(!h.length&&!force){const r2=await fetch(url(true));if(r2.ok)h=arr(await r2.json());}
-      S.hist=h;S.histErr='';store('dl_hist',{acc:S.acc,h:h.slice(0,150)});apiState(true);
+      S.hist=mergeHist(c&&c.acc===acc?c.h:[],arr(await r.json()));S.histErr='';apiState(true);
+      // Сохранённая история может отставать: идём в Steam при нажатии кнопки, при пустой истории
+      // или если из Steam не обновлялись больше 10 минут
+      if(force||!S.hist.length||Date.now()-steamLast()>6e5){
+        if(S.view==='prof'&&S.hist.length){S.histLoading=false;renderCoach();renderMatches();S.histLoading=true;}
+        const st=await steamHistory(acc,!!force);
+        if(acc!==S.acc)return;
+        if(st.h)S.hist=mergeHist(S.hist,st.h);
+        else if(st.limited&&force){const w=steamWait(true);note=`Лимит deadlock-api: 5 обновлений из Steam в час на одну сеть (ПК и телефон в одном Wi-Fi делят его). Следующее через ${Math.max(1,Math.ceil(w/6e4))} мин, пока показываю сохранённую историю.`;}
+        else if(st.err&&force)note='Steam сейчас не ответил ('+st.err+'), показываю сохранённую историю.';
+      }
+      store('dl_hist',{acc,h:S.hist.slice(0,150)});
     }
   }catch(e){
     S.histErr='История не загрузилась: '+e.message;
-    const c=store('dl_hist');if(c&&c.acc===S.acc){S.hist=c.h;S.histErr+='. Показываю сохранённую.';}
+    const c=store('dl_hist');if(c&&c.acc===acc){S.hist=c.h;S.histErr+='. Показываю сохранённую.';}
   }
   S.histNote=note;
   try{
@@ -994,7 +1092,7 @@ function renderCoach(){
   const el=$('coach');
   if(!S.acc){el.innerHTML=welcome();return;}
   if(S.histLoading&&!S.hist.length){el.innerHTML=`<div class="kpis">${sk(5)}</div>${sk(3)}`;return;}
-  const h=recent(20),n=h.length,top=(S.histErr?`<p class="hint err">${esc(S.histErr)}</p>`:'')+(S.histNote?`<p class="hint">${esc(S.histNote)}</p>`:'');
+  const h=recent(20),n=h.length,top=(S.histErr?`<p class="hint err">${esc(S.histErr)}</p>`:'')+(S.histNote?`<p class="hint">${esc(S.histNote)}</p>`:'')+syncLine();
   if(!n){el.innerHTML=top+empty(ICON.chart,'Матчей пока нет','Сыграй пару каток и нажми «Обновить из Steam».');return;}
   const Sm=f=>h.reduce((t,m)=>t+(+f(m)||0),0);
   const wins=h.filter(won).length,kk=Sm(m=>m.player_kills)/n,dd=Sm(m=>m.player_deaths)/n,aa=Sm(m=>m.player_assists)/n,lh=Sm(m=>m.last_hits)/n,nw=Sm(m=>m.net_worth)/n,spm=Sm(m=>m.net_worth)/Math.max(1,Sm(m=>m.match_duration_s)/60);
@@ -1154,31 +1252,65 @@ function onFilters(){
 ['rank','days','lane'].forEach(id=>$(id).addEventListener('change',onFilters));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollLive();});
 setInterval(pollLive,3e4);
-/* Новый матч в истории: сохранённая история каждые 3 минуты, запрос в Steam не чаще раза в 15 минут (лимит 5 в час) */
-S.lastForced=0;S.newMatch=null;
-async function checkNewMatch(){
-  if(!S.acc||document.hidden||S.histLoading||!S.hist.length)return;
-  const acc=S.acc,top=Math.max(...S.hist.map(m=>m.match_id)),force=Date.now()-S.lastForced>9e5;
+/* Новый матч в истории: каждые 3 минуты сохранённая история, запрос в Steam не чаще раза в 15 минут
+   (и всегда в рамках бюджета выше). Во время игры окно приложения скрыто за игрой, поэтому
+   в ПК-приложении проверяем и в фоне, пока Deadlock запущен или только что закрыт. */
+S.newMatch=null;S.lastCheck=0;
+async function histFromMeta(id){
   try{
-    if(force)S.lastForced=Date.now();
-    const r=await fetch(`${API}/players/${acc}/match-history`+(force?'':'?only_stored_history=true'));
-    if(!r.ok||acc!==S.acc)return;
-    const h=arr(await r.json());if(!h.length)return;
-    const nt=Math.max(...h.map(m=>m.match_id));
-    if(nt<=top)return;
-    const seen=new Set(S.hist.map(m=>m.match_id));
-    S.hist=[...h,...S.hist.filter(m=>!h.some(x=>x.match_id===m.match_id))];
-    store('dl_hist',{acc,h:S.hist.slice(0,150)});
-    const m=S.hist.find(x=>x.match_id===nt);
+    const meta=await getJSON(`${API}/matches/${id}/metadata`,{ttl:864e5}),mi=(meta&&(meta.match_info||meta))||{},P=arr(mi.players);
+    const me=P.find(p=>+p.account_id===S.acc);if(!me)return null;
+    return{match_id:+id,hero_id:+me.hero_id,start_time:+mi.start_time||Math.floor(Date.now()/1e3)-(+mi.duration_s||0),match_duration_s:+mi.duration_s||0,
+      player_team:teamNum(me.team),match_result:teamNum(mi.winning_team),player_kills:+me.kills||0,player_deaths:+me.deaths||0,player_assists:+me.assists||0,
+      net_worth:+me.net_worth||0,last_hits:+me.last_hits||0,_meta:1};
+  }catch(e){return null;}
+}
+async function checkNewMatch(o={}){
+  const bg=o.bg||(NATIVE&&!ANDROID&&S.game&&(S.game.running||S.game.last_match_id));
+  if(!S.acc||S.histLoading||!S.hist.length||(document.hidden&&!bg))return false;
+  S.lastCheck=Date.now();
+  const acc=S.acc,top=Math.max(...S.hist.map(m=>+m.match_id));
+  try{
+    let h=null;
+    if(o.steam||Date.now()-steamLast()>9e5){const st=await steamHistory(acc,false);if(st.h)h=st.h;}
+    if(!h){const r=await fetch(`${API}/players/${acc}/match-history?only_stored_history=true`);if(r.ok)h=arr(await r.json());}
+    if(acc!==S.acc)return false;
+    h=h||[];
+    // Детектор знает номер матча, а в истории его ещё нет: пробуем данные самого матча
+    if(o.matchId&&!h.some(m=>String(m.match_id)===String(o.matchId))&&!S.hist.some(m=>String(m.match_id)===String(o.matchId))){
+      const e=await histFromMeta(o.matchId);if(e)h=[e,...h];
+    }
+    if(!h.length)return false;
+    const nt=Math.max(...h.map(m=>+m.match_id)),had=new Map(S.hist.map(m=>[+m.match_id,m]));
+    // Новые матчи и полные данные вместо предварительных (из данных матча)
+    const upd=h.some(m=>{const o=had.get(+m.match_id);return!o||(o._meta&&!m._meta);});
+    if(upd){S.hist=mergeHist(S.hist,h);store('dl_hist',{acc,h:S.hist.slice(0,150)});}
+    if(nt<=top){
+      if(upd&&S.view==='prof'){renderCoach();renderMatches();}
+      else if(S.view==='prof'){const l=$('syncLine');if(l)l.outerHTML=syncLine();}
+      return false;
+    }
+    const m=S.hist.find(x=>+x.match_id===nt);
     S.newMatch=m;
     const w=won(m),hh=S.byId[m.hero_id];
     toast(`Новый матч: ${w?'победа':'поражение'}${hh?' на '+hh.name:''}. Разбор во вкладке «Лайв»`);
     say(w?'Победа! Разбор матча готов':'Матч закончился. Разбор готов','match');
+    if(document.hidden&&NATIVE)nativeNotify('Deadlock Counterpick',`Матч загружен: ${w?'победа':'поражение'}${hh?' на '+hh.name:''}`);
     afterHist();loadMMR();
     if(S.view==='prof'){renderCoach();renderCompare();renderMatches();}
     if(S.view==='live')renderLive();
-  }catch(e){}
+    return true;
+  }catch(e){return false;}
 }
+// После конца матча: несколько попыток с нарастающей паузой, пока матч не появится
+let pmTimer=null;
+function postMatchSync(id){
+  clearTimeout(pmTimer);
+  const steps=[9e4,24e4,6e5,9e5];let i=0;
+  const go=async()=>{const ok=await checkNewMatch({bg:true,steam:true,matchId:id});if(!ok&&++i<steps.length)pmTimer=setTimeout(go,steps[i]);};
+  pmTimer=setTimeout(go,steps[0]);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-S.lastCheck>18e4)checkNewMatch();});
 setInterval(checkNewMatch,18e4);
 setInterval(()=>{if(!document.hidden&&S.view==='train')renderSess();},3e4);
 
@@ -1187,7 +1319,7 @@ function applyTeam(t){document.documentElement.dataset.team=t;store('dl_team',t)
 $('team').onclick=()=>applyTeam(document.documentElement.dataset.team==='amber'?'sapphire':'amber');
 const TIPS=['Урна сама себя не донесёт.','Мид-босс не любит, когда его будят в одиночку.','Непотраченные души не бьют.','Вовремя сделанный парри стоит дороже лишнего предмета.','Если не видишь врага на карте, он видит тебя.','Рейджувенатор выигрывает драки, которые ещё не начались.','Лес не фармится сам, пока ты стоишь на линии.'];
 let ti=Math.floor(Math.random()*TIPS.length);
-const tl=()=>{const e=$('tline');e.style.opacity=0;setTimeout(()=>{e.textContent='«'+TIPS[ti++%TIPS.length]+'»';e.style.opacity=1;},300);};
+const tl=()=>{if(document.documentElement.classList.contains('calm'))return;const e=$('tline');e.style.opacity=0;setTimeout(()=>{e.textContent='«'+TIPS[ti++%TIPS.length]+'»';e.style.opacity=1;},300);};
 tl();setInterval(tl,2e4);
 const eggs=new Set(store('dl_eggs')||[]);
 const eggc=()=>{$('eggc').textContent=eggs.size?`Пасхалки: ${eggs.size} из 3`:'';};
@@ -1438,7 +1570,7 @@ const TPRE=[{id:'boss',n:'Мид-босс',s:420},{id:'big',n:'Большой л
 let tdur=Object.assign(Object.fromEntries(TPRE.map(t=>[t.id,t.s])),store('dl_timers')||{});
 const trun={},twarn={};let ttick=null;
 function renderTimers(){
-  $('timers').innerHTML=`<div class="timers">${TPRE.map((t,i)=>`<div class="timer" id="tm-${t.id}"><span class="hint" style="margin:0">${esc(t.n)}</span>${HOTKEYS()?`<span class="tk">F${6+i}</span>`:''}<b data-tr="${t.id}">${fmt(tdur[t.id])}</b><div class="bar"><i data-tb="${t.id}" style="width:100%;animation:none"></i></div><div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" type="button" data-tm="${t.id}" data-ta="go">Старт</button><button class="btn sm ghost" type="button" data-tm="${t.id}" data-ta="reset" aria-label="Сбросить таймер">↺</button></div><label class="hint" style="display:block;margin:8px 0 0">сек <input class="inp gi" type="text" inputmode="numeric" data-td="${t.id}" value="${tdur[t.id]}" aria-label="Длительность: ${esc(t.n)}"></label></div>`).join('')}</div>${HOTKEYS()?`<div class="row mt" style="justify-content:space-between"><label class="tog"><input type="checkbox" id="ontop" ${store('dl_ontop')?'checked':''}> Окно поверх игры</label><span class="hint" style="margin:0">F6–F10 запускают таймеры прямо из игры${LINUX?' (на Wayland могут не срабатывать)':''}</span></div>`:''}`;
+  $('timers').innerHTML=`<div class="timers">${TPRE.map((t,i)=>`<div class="timer" id="tm-${t.id}"><span class="hint" style="margin:0">${esc(t.n)}</span>${HOTKEYS()?`<span class="tk">F${6+i}</span>`:''}<b data-tr="${t.id}">${fmt(tdur[t.id])}</b><div class="bar"><i data-tb="${t.id}" style="transform:scaleX(1)"></i></div><div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" type="button" data-tm="${t.id}" data-ta="go">Старт</button><button class="btn sm ghost" type="button" data-tm="${t.id}" data-ta="reset" aria-label="Сбросить таймер">↺</button></div><label class="hint" style="display:block;margin:8px 0 0">сек <input class="inp gi" type="text" inputmode="numeric" data-td="${t.id}" value="${tdur[t.id]}" aria-label="Длительность: ${esc(t.n)}"></label></div>`).join('')}</div>${HOTKEYS()?`<div class="row mt" style="justify-content:space-between"><label class="tog"><input type="checkbox" id="ontop" ${store('dl_ontop')?'checked':''}> Окно поверх игры</label><span class="hint" style="margin:0">F6–F10 запускают таймеры прямо из игры${LINUX?' (на Wayland могут не срабатывать)':''}</span></div>`:''}`;
   tickTimers();
 }
 function timerAct(id,a){
@@ -1455,10 +1587,12 @@ function tickTimers(){
       if(left<=30&&left>0&&!twarn[t.id]&&tdur[t.id]>45){twarn[t.id]=1;beep(880,.12);say(t.n+' через 30 секунд','timers');}
       if(left<=0&&twarn[t.id]!==2){twarn[t.id]=2;beep(990,.25);setTimeout(()=>beep(990,.25),320);say(t.n+' готов','timers');toast(t.n+': готов');if(NATIVE&&!ANDROID)nativeNotify('Deadlock Counterpick',t.n+' готов');}
     }
+    if(document.hidden)continue; // звук и уведомления работают, а невидимый экран не перерисовываем
     const el=document.getElementById('tm-'+t.id);
     if(!el)continue;
-    el.querySelector('[data-tr]').textContent=fmt(Math.ceil(left));
-    el.querySelector('[data-tb]').style.width=(end?left/tdur[t.id]*100:100).toFixed(1)+'%';
+    const tr=el.querySelector('[data-tr]'),tb=el.querySelector('[data-tb]'),txt=fmt(Math.ceil(left)),sc=(end?left/tdur[t.id]:1).toFixed(3);
+    if(tr.textContent!==txt)tr.textContent=txt;
+    if(tb.dataset.s!==sc){tb.dataset.s=sc;tb.style.transform='scaleX('+sc+')';}
     el.classList.toggle('run',!!end&&left>30);el.classList.toggle('soon',!!end&&left<=30&&left>0);el.classList.toggle('done',!!end&&left<=0);
   }
   if(ttick&&Object.keys(trun).every(id=>twarn[id]===2)){clearInterval(ttick);ttick=null;}
@@ -1595,6 +1729,10 @@ const TAURI=window.__TAURI__||null,NATIVE=!!(TAURI&&TAURI.core),ANDROID=/Android
 // Простая Android-оболочка на WebView (APK без Tauri): нет загрузок файлов и озвучки
 const WV=!NATIVE&&ANDROID&&/;\s*wv\)/.test(navigator.userAgent);
 const LINUX=NATIVE&&!ANDROID&&/Linux/i.test(navigator.userAgent);
+// Телефон: размытие под шапкой и меню дорого для мобильной видеокарты, заменяем сплошным фоном
+if(ANDROID||matchMedia('(pointer:coarse)').matches)document.documentElement.classList.add('mob');
+function updCalm(){document.documentElement.classList.toggle('calm',document.hidden||!!(S.game&&S.game.running));}
+document.addEventListener('visibilitychange',updCalm);
 const HOTKEYS=()=>NATIVE&&!ANDROID;
 const tnid={};
 const blobB64=b=>new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]||'');fr.onerror=rej;fr.readAsDataURL(b);});
@@ -1646,11 +1784,11 @@ const heroByClass=c=>S.heroes.find(h=>h.cls&&h.cls===c);
 function gameHeroes(g){const l=(g&&g.heroes||[]).map(heroByClass).filter(Boolean);return l.length<=12?l:[];}
 function onGame(g){
   if(!g)return;
-  const prev=S.game;S.game=g;
+  const prev=S.game;S.game=g;updCalm();
   if(prev&&!prev.running&&g.running){toast('Deadlock запущен: детектор следит за матчем');say('Дэдлок запущен','match');}
   if(prev&&g.last_match_id&&prev.last_match_id!==g.last_match_id){
-    toast('Матч закончился: через минуту загружу его из истории');
-    setTimeout(()=>{S.lastForced=0;checkNewMatch();},6e4);setTimeout(checkNewMatch,24e4);
+    toast('Матч закончился: загружу его, как только он появится');
+    postMatchSync(g.last_match_id);
   }
   const kn=gameHeroes(g),pk=gameHeroes(prev);
   if(kn.length&&kn.length!==pk.length)toast(`В логе замечены герои: ${kn.length}. Вкладка «Лайв»`);

@@ -309,8 +309,16 @@ fn hidden_command(program: &str) -> std::process::Command {
     c
 }
 
+/// Путь Steam из реестра. Читаем один раз за запуск: иначе каждые 30 секунд поиска
+/// папки игры запускался бы процесс reg.exe.
 #[cfg(windows)]
 fn registry_steam_path() -> Option<PathBuf> {
+    static CACHE: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+    CACHE.get_or_init(read_registry_steam_path).clone()
+}
+
+#[cfg(windows)]
+fn read_registry_steam_path() -> Option<PathBuf> {
     let out = hidden_command("reg")
         .args(["query", r"HKCU\Software\Valve\Steam", "/v", "SteamPath"])
         .output()
@@ -345,10 +353,78 @@ pub fn is_deadlock_process(comm: &str, cmdline: &str) -> bool {
         })
 }
 
+/// Список процессов Windows напрямую через Toolhelp32 (kernel32), без запуска tasklist.exe.
+/// Раньше каждые 3 секунды создавался новый процесс с консолью: это десятки миллисекунд
+/// процессорного времени и лишняя нагрузка на систему прямо во время игры.
+#[cfg(windows)]
+mod winproc {
+    use std::ffi::c_void;
+
+    #[repr(C)]
+    #[allow(non_snake_case)]
+    struct ProcessEntry32W {
+        dwSize: u32,
+        cntUsage: u32,
+        th32ProcessID: u32,
+        th32DefaultHeapID: usize,
+        th32ModuleID: u32,
+        cntThreads: u32,
+        th32ParentProcessID: u32,
+        pcPriClassBase: i32,
+        dwFlags: u32,
+        szExeFile: [u16; 260],
+    }
+
+    const TH32CS_SNAPPROCESS: u32 = 0x0000_0002;
+    const INVALID_HANDLE_VALUE: isize = -1;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateToolhelp32Snapshot(flags: u32, pid: u32) -> *mut c_void;
+        fn Process32FirstW(snapshot: *mut c_void, entry: *mut ProcessEntry32W) -> i32;
+        fn Process32NextW(snapshot: *mut c_void, entry: *mut ProcessEntry32W) -> i32;
+        fn CloseHandle(handle: *mut c_void) -> i32;
+    }
+
+    /// Есть ли процесс с таким именем файла. `None`, если снимок процессов недоступен.
+    pub fn process_exists(exe: &str) -> Option<bool> {
+        // SAFETY: структура повторяет PROCESSENTRY32W из tlhelp32.h, dwSize задан до вызова,
+        // дескриптор снимка закрывается на всех путях после успешного создания.
+        unsafe {
+            let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if snap.is_null() || snap as isize == INVALID_HANDLE_VALUE {
+                return None;
+            }
+            let mut e: ProcessEntry32W = std::mem::zeroed();
+            e.dwSize = std::mem::size_of::<ProcessEntry32W>() as u32;
+            let mut found = false;
+            let mut ok = Process32FirstW(snap, &mut e);
+            while ok != 0 {
+                let len = e
+                    .szExeFile
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(e.szExeFile.len());
+                if String::from_utf16_lossy(&e.szExeFile[..len]).eq_ignore_ascii_case(exe) {
+                    found = true;
+                    break;
+                }
+                ok = Process32NextW(snap, &mut e);
+            }
+            CloseHandle(snap);
+            Some(found)
+        }
+    }
+}
+
 /// Запущена ли игра (процесс deadlock.exe).
 pub fn is_game_running() -> bool {
     #[cfg(windows)]
     {
+        if let Some(r) = winproc::process_exists("deadlock.exe") {
+            return r;
+        }
+        // Запасной путь, если снимок процессов почему-то недоступен
         hidden_command("tasklist")
             .args(["/FI", "IMAGENAME eq deadlock.exe", "/FO", "CSV", "/NH"])
             .output()
@@ -361,21 +437,33 @@ pub fn is_game_running() -> bool {
     }
     #[cfg(target_os = "linux")]
     {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        // PID найденной игры: пока она жива, проверяем только его, без обхода всех процессов
+        static LAST_PID: AtomicU32 = AtomicU32::new(0);
+        let check = |dir: &Path| {
+            let comm = std::fs::read_to_string(dir.join("comm")).unwrap_or_default();
+            let cmd = std::fs::read(dir.join("cmdline")).unwrap_or_default();
+            is_deadlock_process(&comm, &String::from_utf8_lossy(&cmd))
+        };
+        let last = LAST_PID.load(Ordering::Relaxed);
+        if last != 0 && check(&Path::new("/proc").join(last.to_string())) {
+            return true;
+        }
+        LAST_PID.store(0, Ordering::Relaxed);
         let Ok(entries) = std::fs::read_dir("/proc") else {
             return false;
         };
-        entries.flatten().any(|e| {
+        for e in entries.flatten() {
             let name = e.file_name();
-            let Some(pid) = name.to_str() else {
-                return false;
+            let Some(pid) = name.to_str().and_then(|p| p.parse::<u32>().ok()) else {
+                continue;
             };
-            if !pid.bytes().all(|b| b.is_ascii_digit()) {
-                return false;
+            if check(&e.path()) {
+                LAST_PID.store(pid, Ordering::Relaxed);
+                return true;
             }
-            let comm = std::fs::read_to_string(e.path().join("comm")).unwrap_or_default();
-            let cmd = std::fs::read(e.path().join("cmdline")).unwrap_or_default();
-            is_deadlock_process(&comm, &String::from_utf8_lossy(&cmd))
-        })
+        }
+        false
     }
     #[cfg(not(any(windows, target_os = "linux")))]
     {
